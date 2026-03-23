@@ -12,16 +12,44 @@ export default function HomePage() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('ALL');
+  const [loadError, setLoadError] = useState('');
 
   async function loadProducts() {
-    const query = new URLSearchParams({ search, status });
-    const response = await fetch(`/api/products?${query.toString()}`);
-    const data = await response.json();
-    setProducts(data);
+    try {
+      setLoadError('');
+      const query = new URLSearchParams({ search, status });
+      const response = await fetch(`/api/products?${query.toString()}`);
+
+      if (!response.ok) {
+        let errorMessage = 'We could not load products right now. Please try again.';
+
+        try {
+          const errorData = await response.json();
+          if (errorData?.error) {
+            errorMessage = errorData.error;
+          }
+        } catch {
+          // Keep the default message if the response body is not valid JSON.
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      setProducts(data);
+    } catch (error) {
+      setProducts([]);
+      setLoadError(error.message || 'We could not load products right now. Please try again.');
+    }
   }
 
   async function loadProductHistory(productId) {
     const response = await fetch(`/api/products/${productId}/history`);
+
+    if (!response.ok) {
+      return;
+    }
+
     const product = await response.json();
     setSelectedProduct(product);
   }
@@ -72,6 +100,10 @@ export default function HomePage() {
           ))}
         </select>
       </section>
+
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>
+      )}
 
       <ProductTable products={products} onSelectProduct={handleSelectProduct} />
 
